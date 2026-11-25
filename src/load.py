@@ -139,11 +139,45 @@ def get_plan_id(engine, plan_name):
 
     with engine.connect() as conn:
         result = conn.execute(
-            text("SELECT plan_id FROM training_plans WHERE plan_name = :plan_name"),
+            text("SELECT plan_id FROM training_plans WHERE LOWER(plan_name) = LOWER(:plan_name)"),
             {"plan_name": plan_name}
         )
         return result.scalar()
 
+def choose_plan_name(base_name):
+    """
+    Returns final plan name, or None if user cancels.
+    If base_name already exists, asks: update existing or create new under another name.
+    """
+    engine = connect_to_database()
+
+    try:
+        name = base_name
+
+        while True:
+            if not plan_exists(engine, name):
+                return name
+
+            print(f"\nPlan '{name}' already exists in database.")
+            print("1. Update existing plan")
+            print("2. Create new plan under a different name")
+            print("0. Cancel")
+            choice = input("\nEnter choice: ").strip()
+
+            if choice == "1":
+                return name
+            elif choice == "2":
+                new_name = input("New plan name: ").strip()
+                if not new_name:
+                    print("Name cannot be empty.")
+                    continue
+                name = new_name   # pętla sprawdzi, czy i ta nazwa jest wolna
+            elif choice == "0":
+                return None
+            else:
+                print("Invalid choice.")
+    finally:
+        engine.dispose()
 
 def log_exercise_added(exercise_name, exercise_data):
     """Logs information about added exercise"""
@@ -271,7 +305,7 @@ def process_single_exercise(engine, plan_id, day_of_week, exercise):
             }
         )
 
-    existing_id = result.scalar()
+        existing_id = result.scalar()
 
     if existing_id:
         # Update plan exercise
@@ -318,7 +352,7 @@ def save_plan_to_database(json_file, plan_name, start_date):
         # Check if plan already exists
         if plan_exists(engine, plan_name):
             log(f"Plan: '{plan_name}' already exists in database.",
-                level="ERROR", echo=True)
+                level="WARNING", echo=True)
             plan_id = get_plan_id(engine, plan_name)
         else:
             plan_id = create_new_plan(engine, plan_name, start_date)
@@ -359,12 +393,15 @@ def save_workout_to_database(workout_file):
 
         workout_path = Path(workout_file)
         parts = workout_path.stem.split("_")
-        plan_name = f"{parts[1].title()} {parts[2]}"
-        day_of_week = parts[3].title()
+        plan_name = " ".join(parts[1:-2])
+        day_of_week = parts[-2].title()
 
         # Get plan_id
 
         plan_id = get_plan_id(engine, plan_name)
+
+        if plan_id is None:
+            raise ValueError(f"Plan '{plan_name}' not found in database")
 
         # Get session_date from user (todays date by default)
 

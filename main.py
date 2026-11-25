@@ -5,16 +5,15 @@ from config import WEB_USERNAME, WEB_PASSWORD, JSON_PATH, WORKOUT_XLSX_PATH
 from src.extract import scrape_training_plan
 from src.utils import log, clear_screen
 from src.ui import plan_selector, workout_day_selector_export, workout_day_selector_import
-from src.load import save_plan_to_database, save_workout_to_database
+from src.load import save_plan_to_database, save_workout_to_database, choose_plan_name
 from src.genxlsx import generate_workout_excel
-
 
 if __name__ == "__main__":
 
     today = date.today()
-    
+
     while True:
-        
+
         clear_screen()
         print("1. Gather this months training plan and import it to DB")
         print("2. Generate workout excel file")
@@ -24,7 +23,7 @@ if __name__ == "__main__":
 
         match choice:
             case "1":
-                
+
                 clear_screen()
                 log("=" * 80)
                 log("SCRAPING PROCESS STARTED", echo=True)
@@ -46,11 +45,19 @@ if __name__ == "__main__":
                 log("=" * 80)
                 log("SCRAPING PROCESS ENDED", echo=True)
                 log("=" * 80)
+
+                plan_name = choose_plan_name(today.strftime("%B %Y"))
+
+                if plan_name is None:
+                    print("\nImport canceled")
+                    input("Press Enter to continue...")
+                    continue
+
                 log("=" * 80)
                 log("LOADING PROCESS STARTED", echo=True)
                 log("=" * 80)
 
-                save_plan_to_database(json_file=JSON_PATH, plan_name=today.strftime("%B %Y"), start_date=today)
+                save_plan_to_database(json_file=JSON_PATH, plan_name=plan_name, start_date=today)
 
                 log("=" * 80)
                 log("LOADING PROCESS ENDED", echo=True)
@@ -60,7 +67,7 @@ if __name__ == "__main__":
                 print("Data gathered and imported successfuly")
                 print("=" * 80 + "\n")
                 input("Press Enter to continue...")
-            
+
             case "2":
 
                 result = plan_selector()
@@ -105,4 +112,4 @@ if __name__ == "__main__":
 
             case _:
                 print("Invalid choice! Please select one of the menu options by number.")
-                input("Press Enter to continue...")    
+                input("Press Enter to continue...")
